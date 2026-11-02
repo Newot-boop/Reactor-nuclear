@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FISIÓN 8-BIT — Simulador de Reactor Nuclear</title>
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#05060c;--panel:#0a1120;--line:#1f3557;--green:#5ee66a;--cyan:#39c6ff;--amber:#ffc93c;--red:#ff4d4d;--text:#c8d6e5;--dim:#6b7f99}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;padding:14px;background:radial-gradient(circle at 50% -10%,#0d1a2e,var(--bg) 65%);color:var(--text);font:13px "Courier New",ui-monospace,monospace;display:flex;justify-content:center}
+.app{width:100%;max-width:1100px}
+header{text-align:center;margin-bottom:12px}
+h1{margin:0;font-size:19px;letter-spacing:5px;color:var(--green);text-shadow:0 0 8px rgba(94,230,106,.55)}
+.sub{margin:5px 0 0;font-size:10px;letter-spacing:3px;color:var(--dim)}
+.main{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.screen{position:relative;flex:1 1 520px;min-width:0;border:3px solid var(--line);background:#000;box-shadow:0 0 30px rgba(57,198,255,.14);line-height:0;overflow:hidden}
+.screen canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+.screen::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);pointer-events:none}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(40,0,0,.78);z-index:5;text-align:center;padding:18px;line-height:1.4}
+.overlay.hidden{display:none}
+.big{font-size:18px;letter-spacing:3px;color:#ff6b6b;text-shadow:0 0 14px red;animation:b .55s steps(2) infinite}
+.overlay p{margin:0;color:#ffb3b3;font-size:11px;max-width:320px}
+@keyframes b{50%{opacity:.25}}
+.panel{flex:0 0 320px;display:flex;flex-direction:column;gap:10px}
+@media(max-width:760px){.panel{flex:1 1 100%}}
+section{background:var(--panel);border:2px solid var(--line);padding:10px 12px 12px}
+h2{margin:0 0 9px;font-size:10px;letter-spacing:3px;color:var(--cyan);border-bottom:1px dashed #1a2c48;padding-bottom:6px}
+.rl{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1.5px;color:var(--dim);margin-bottom:6px}
+.rl b{color:var(--amber);font-size:13px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:#08111f;border:2px solid #16283f;outline:none;cursor:pointer;display:block}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--green);border:2px solid #05060c;box-shadow:0 0 8px rgba(94,230,106,.8)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;background:var(--green);border:2px solid #05060c;border-radius:0}
+#rod::-webkit-slider-thumb{background:#9aa7b8}#rod::-moz-range-thumb{background:#9aa7b8}
+.hint{margin-top:7px;font-size:10px;line-height:1.5;color:#57708c}
+.hint em{color:#7fa7cf;font-style:normal}
+button{font:inherit;cursor:pointer}
+.tg{width:100%;margin-top:10px;font-size:11px;letter-spacing:2px;padding:10px 6px;background:#08111f;color:var(--dim);border:2px solid #16283f}
+.tg.on{background:#062a3d;color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 14px rgba(57,198,255,.45)}
+.lv{background:#070d18;border:2px solid var(--line);padding:10px;text-align:center}
+.lv .l{font-size:9px;letter-spacing:3px;color:var(--dim);margin-bottom:5px}
+#level{font-size:18px;letter-spacing:3px;font-weight:bold;color:#5b7fa6;text-shadow:0 0 10px currentColor}
+#levelDesc{font-size:10px;color:#57708c;margin-top:5px;min-height:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.st{background:#070d18;border:1px solid #16283f;padding:7px 8px}
+.st .l{font-size:8px;letter-spacing:1.6px;color:var(--dim)}
+.st .v{font-size:15px;color:var(--amber);margin-top:3px}
+.tw{background:#070d18;border:1px solid #16283f;padding:8px}
+.bar{height:12px;background:#0d1626;border:1px solid #16283f;position:relative;overflow:hidden}
+#tempbar{height:100%;width:0;background:linear-gradient(90deg,#3ddc84,#ffc93c 55%,#ff4d4d)}
+.bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 6px,rgba(0,0,0,.45) 6px 8px)}
+#hist{width:100%;height:38px;display:block;margin-top:8px;background:#070d18;border:1px solid #16283f;image-rendering:pixelated}
+#reset{width:100%;font-size:11px;letter-spacing:3px;padding:11px;background:#1a0b0b;color:#ff8b8b;border:2px solid #552222}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:10px;color:var(--dim)}
+.legend i{width:10px;height:10px;display:inline-block;margin-right:5px}
+#det{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>▚ FISIÓN U-235 ▞</h1><p class="sub">SIMULADOR DE REACCIÓN EN CADENA · EDICIÓN 8-BIT</p></header>
+<div class="main">
+  <div class="screen">
+    <canvas id="sim" width="320" height="200"></canvas>
+    <canvas id="det" width="320" height="200"></canvas>
+    <div id="overlay" class="overlay hidden">
+      <div class="big">⚠ FUSIÓN DEL NÚCLEO ⚠</div>
+      <p>La temperatura superó el límite de seguridad. El combustible se fundió y la reacción quedó fuera de control.</p>
+      <button id="resetMelt" class="tg on" style="max-width:220px">REINICIAR</button>
+    </div>
+  </div>
+  <aside class="panel">
+    <button id="view" class="tg" style="margin:0">🔬 VER DETALLE DE LA FISIÓN</button>
+    <div class="lv"><div class="l">NIVEL DE REACCIÓN</div><div id="level">SIN REACCIÓN</div><div id="levelDesc">El núcleo está estable</div></div>
+    <div class="g2">
+      <div class="st"><div class="l">FISIONES / SEG</div><div class="v" id="rate">0</div></div>
+      <div class="st"><div class="l">NEUTRONES</div><div class="v" id="ncount">0</div></div>
+      <div class="st"><div class="l">ENERGÍA (MeV)</div><div class="v" id="energy">0</div></div>
+      <div class="st"><div class="l">RADIACIÓN</div><div class="v" id="rad">0</div></div>
+    </div>
+    <div class="tw">
+      <div class="rl">TEMPERATURA DEL NÚCLEO <b id="tempval">0%</b></div>
+      <div class="bar"><div id="tempbar"></div></div>
+      <canvas id="hist" width="160" height="38"></canvas>
+    </div>
+    <section>
+      <h2>▸ COMBUSTIBLE</h2>
+      <div class="rl">ENRIQUECIMIENTO <b id="vEnr">5%</b></div>
+      <input type="range" id="enr" min="1" max="100" value="5">
+      <div class="hint">Proporción de <em>U-235</em> (verde, fisionable) frente a <em>U-238</em> (gris, fértil). El U-238 no fisiona: solo absorbe neutrones y apaga la cadena.</div>
+    </section>
+    <section>
+      <h2>▸ CONTROL</h2>
+      <div class="rl">BARRAS DE CONTROL <b id="vRod">0%</b></div>
+      <input type="range" id="rod" min="0" max="100" value="0">
+      <div class="hint">Las barras <em>absorben neutrones</em> antes de que golpeen otro núcleo. Más insertadas, reacción más lenta.</div>
+      <button id="shield" class="tg">CONTENCIÓN: OFF</button>
+      <div class="hint"><em>Con blindaje:</em> refleja neutrones y retiene radiación, pero encierra el calor. <em>Sin blindaje:</em> los neutrones escapan al ambiente.</div>
+      <button id="snd" class="tg">🔇 SONIDO: OFF</button>
+    </section>
+    <button id="reset">↺ REINICIAR REACTOR</button>
+    <div class="legend">
+      <span><i style="background:#5ee66a"></i>U-235</span><span><i style="background:#6b7a90"></i>U-238</span>
+      <span><i style="background:#ffe94d"></i>Neutrón</span><span><i style="background:#9aa7b8"></i>Barra</span>
+      <span><i style="background:#39c6ff"></i>Contención</span>
+    </div>
+  </aside>
+</div>
+</div>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const cv=$('sim'),ctx=cv.getContext('2d');
+const W=320,H=200,CORE={x:20,y:18,w:280,h:164};
+const COLS=13,ROWS=11,DX=21,DY=15;
+const GX=CORE.x+(CORE.w-(COLS-1)*DX)/2,GY=CORE.y+(CORE.h-(ROWS-1)*DY)/2;
+const ROD_XS=[46,103,160,217,274],ROD_W=7,ROD_TOP=4,ROD_FULL=CORE.y+CORE.h-4;
+const MAXN=260,MELT=150;
+const S={enr:5,rod:0,cont:false,atoms:[],n:[],fx:[],sp:[],fissions:0,times:[],energy:0,rad:0,heat:0,melt:false,t:0,shake:0,hist:[]};
+
+/* ---------- AUDIO ---------- */
+let ac=null,master,noiseBuf,hum,humG,on=false,lastTick=0;
+function initAudio(){
+  if(ac)return;
+  ac=new(window.AudioContext||window.webkitAudioContext)();
+  master=ac.createGain();master.gain.value=.5;master.connect(ac.destination);
+  noiseBuf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);
+  const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  hum=ac.createOscillator();hum.type='sawtooth';hum.frequency.value=48;
+  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=140;
+  humG=ac.createGain();humG.gain.value=0;
+  hum.connect(f);f.connect(humG);humG.connect(master);hum.start();
+}
+function tone(f,d,v,type,slide){
+  if(!on)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();
+  o.type=type||'square';o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,slide),t+d);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+d+.02);
+}
+function noise(d,v,hp,lp){
+  if(!on)return;const t=ac.currentTime,s=ac.createBufferSource(),g=ac.createGain(),f=ac.createBiquadFilter();
+  s.buffer=noiseBuf;f.type=lp?'lowpass':'highpass';f.frequency.setValueAtTime(lp||hp,t);
+  if(lp)f.frequency.exponentialRampToValueAtTime(60,t+d);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t,Math.random(),d+.05);
+}
+function geiger(v){
+  if(!on||ac.currentTime-lastTick<.012)return;lastTick=ac.currentTime;
+  noise(.012,v||.35,2500);
+}
+function setSound(v){
+  on=v;if(v){initAudio();ac.resume();}
+  if(humG&&!v)humG.gain.value=0;
+  const b=$('snd');b.classList.toggle('on',v);b.textContent=v?'🔊 SONIDO: ON':'🔇 SONIDO: OFF';
+}
+
+/* ---------- NÚCLEO ---------- */
+function buildCore(){
+  S.atoms=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    S.atoms.push({cx:GX+c*DX,cy:GY+r*DY,alive:true,u:Math.random()<S.enr/100,resp:0});
+}
+function srcNeutron(){
+  if(S.n.length>=MAXN)return;
+  const a=Math.random()*6.283,sp=.8+Math.random()*.9;
+  S.n.push({x:CORE.x+8+Math.random()*(CORE.w-16),y:CORE.y+8+Math.random()*(CORE.h-16),vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,cool:6});
+}
+function reset(){
+  Object.assign(S,{n:[],fx:[],sp:[],fissions:0,times:[],energy:0,rad:0,heat:0,melt:false,t:0,shake:0,hist:[]});
+  buildCore();$('overlay').classList.add('hidden');
+  for(let i=0;i<3;i++)srcNeutron();
+}
+function fission(at){
+  at.alive=false;at.resp=45+Math.random()*45;
+  S.fissions++;S.times.push(S.t);S.energy+=200;S.heat+=1;
+  const cnt=2+(Math.random()<.5?1:0);
+  for(let i=0;i<cnt&&S.n.length<MAXN;i++){
+    const a=Math.random()*6.283,sp=.8+Math.random();
+    S.n.push({x:at.cx,y:at.cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,cool:5});
+  }
+  S.fx.push({x:at.cx,y:at.cy,t:0,dur:16,k:'f'});
+  if(S.sp.length<160)for(let i=0;i<5;i++){const a=Math.random()*6.283,s=.4+Math.random()*1.1;S.sp.push({x:at.cx,y:at.cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:14+Math.random()*12});}
+  tone(95,.13,.22,'sine',40);geiger(.5);
+}
+
+/* ---------- FÍSICA ---------- */
+function step(){
+  S.t++;if(view)dstep();
+  if(S.melt){fxUpdate();return;}
+  const L=CORE.x,R=CORE.x+CORE.w,T=CORE.y,B=CORE.y+CORE.h;
+  if(S.t%60===0)srcNeutron();
+  const rb=ROD_TOP+(ROD_FULL-ROD_TOP)*S.rod/100;
+  for(let i=S.n.length-1;i>=0;i--){
+    const n=S.n[i];n.x+=n.vx;n.y+=n.vy;if(n.cool>0)n.cool--;
+    let rodHit=false;
+    for(const rx of ROD_XS)if(n.x>=rx&&n.x<=rx+ROD_W&&n.y>=T&&n.y<=rb){rodHit=true;break;}
+    if(rodHit){S.fx.push({x:n.x,y:n.y,t:0,dur:9,k:'a',c:'#9aa7b8'});S.n.splice(i,1);tone(1400,.03,.05,'square');continue;}
+    if(n.cool===0){
+      let hit=null;
+      for(const at of S.atoms){if(!at.alive)continue;const dx=n.x-at.cx,dy=n.y-at.cy;if(dx*dx+dy*dy<36){hit=at;break;}}
+      if(hit){
+        if(hit.u){fission(hit);S.n.splice(i,1);continue;}
+        if(Math.random()<.9){S.fx.push({x:n.x,y:n.y,t:0,dur:9,k:'a',c:'#6b7a90'});S.n.splice(i,1);tone(220,.04,.05,'triangle');continue;}
+        const a=Math.random()*6.283;n.vx=Math.cos(a)*1.1;n.vy=Math.sin(a)*1.1;n.cool=7;
+      }
+    }
+    if(n.x<L||n.x>R||n.y<T||n.y>B){
+      if(S.cont){
+        if(Math.random()<.55){
+          if(n.x<L){n.x=L+1;n.vx=Math.abs(n.vx);}if(n.x>R){n.x=R-1;n.vx=-Math.abs(n.vx);}
+          if(n.y<T){n.y=T+1;n.vy=Math.abs(n.vy);}if(n.y>B){n.y=B-1;n.vy=-Math.abs(n.vy);}
+          tone(900,.04,.06,'sine',1500);
+        }else S.n.splice(i,1);
+      }else{S.rad++;S.n.splice(i,1);geiger(.3);}
+    }
+  }
+  for(const at of S.atoms)if(!at.alive&&--at.resp<=0){at.alive=true;at.u=Math.random()<S.enr/100;}
+  S.heat*=S.cont?.995:.99;if(S.heat<.02)S.heat=0;
+  // alarma
+  if(S.heat>90&&S.t%24===0)tone(S.heat>125?1200:880,.1,.12,'square');
+  S.shake=S.heat>100?(S.heat-100)/50*2.2:0;
+  if(S.heat>=MELT){
+    S.melt=true;$('overlay').classList.remove('hidden');S.shake=6;
+    noise(2.6,.7,0,1800);tone(120,1.8,.4,'sawtooth',25);
+    for(let i=0;i<90;i++){const a=Math.random()*6.283,s=Math.random()*3;S.sp.push({x:CORE.x+CORE.w/2,y:CORE.y+CORE.h/2,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:30+Math.random()*50});}
+  }
+  fxUpdate();
+}
+function fxUpdate(){
+  for(let i=S.fx.length-1;i>=0;i--)if(++S.fx[i].t>=S.fx[i].dur)S.fx.splice(i,1);
+  for(let i=S.sp.length-1;i>=0;i--){const p=S.sp[i];p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96;if(--p.l<=0)S.sp.splice(i,1);}
+  if(S.melt)S.shake=Math.max(0,S.shake*.985);
+}
+function rate(){const lim=S.t-60;while(S.times.length&&S.times[0]<lim)S.times.shift();return S.times.length;}
+
+/* ---------- DIBUJO ---------- */
+function draw(){
+  const h=Math.min(1,S.heat/MELT),fr=rate();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='#05060c';ctx.fillRect(0,0,W,H);
+  if(S.shake>0)ctx.translate((Math.random()-.5)*S.shake*2,(Math.random()-.5)*S.shake*2);
+  ctx.fillStyle=`rgb(${8+h*70|0},${17-h*8|0},${31-h*14|0})`;ctx.fillRect(CORE.x,CORE.y,CORE.w,CORE.h);
+  ctx.fillStyle='#0d1c31';
+  for(let x=CORE.x+8;x<CORE.x+CORE.w;x+=8)ctx.fillRect(x,CORE.y,1,CORE.h);
+  for(let y=CORE.y+8;y<CORE.y+CORE.h;y+=8)ctx.fillRect(CORE.x,y,CORE.w,1);
+  // resplandor Cherenkov
+  if(fr>3){ctx.fillStyle=`rgba(57,198,255,${Math.min(.16,fr*.004)*(.8+.2*Math.sin(S.t*.2))})`;ctx.fillRect(CORE.x,CORE.y,CORE.w,CORE.h);}
+  // átomos
+  for(const a of S.atoms){
+    if(!a.alive)continue;
+    const x=Math.round(a.cx-3),y=Math.round(a.cy-3);
+    if(a.u){
+      if(h>.3){ctx.fillStyle=`rgba(255,120,40,${(h-.3)*.35})`;ctx.fillRect(x-2,y-2,10,10);}
+      ctx.fillStyle='#1f6b2c';ctx.fillRect(x,y,6,6);ctx.fillStyle='#5ee66a';ctx.fillRect(x+1,y+1,4,4);ctx.fillStyle='#b6ffb0';ctx.fillRect(x+1,y+1,1,1);
+    }else{
+      ctx.fillStyle='#2b3442';ctx.fillRect(x,y,6,6);ctx.fillStyle='#6b7a90';ctx.fillRect(x+1,y+1,4,4);ctx.fillStyle='#a8b8c8';ctx.fillRect(x+1,y+1,1,1);
+    }
+  }
+  // neutrones con estela
+  for(const n of S.n){
+    ctx.fillStyle='rgba(255,233,77,.2)';
+    ctx.fillRect(Math.round(n.x-n.vx*4),Math.round(n.y-n.vy*4),1,1);
+    ctx.fillStyle='rgba(255,233,77,.4)';
+    ctx.fillRect(Math.round(n.x-n.vx*2),Math.round(n.y-n.vy*2),1,1);
+    ctx.fillStyle='#ffe94d';ctx.fillRect(Math.round(n.x),Math.round(n.y),2,2);
+    ctx.fillStyle='#fffbe0';ctx.fillRect(Math.round(n.x),Math.round(n.y),1,1);
+  }
+  // chispas
+  for(const p of S.sp){ctx.fillStyle=p.l>12?'#fffbe0':p.l>6?'#ffb030':'#ff5a20';ctx.fillRect(Math.round(p.x),Math.round(p.y),1,1);}
+  shield();rods();
+  // efectos
+  for(const e of S.fx){
+    const k=e.t/e.dur;
+    if(e.k==='f'){
+      const r=3+k*17;
+      ctx.fillStyle=`rgba(255,240,150,${.55*(1-k)})`;ctx.fillRect(e.x-r/2,e.y-r/2,r,r);
+      ctx.fillStyle=`rgba(255,160,40,${1-k})`;
+      const q=Math.round(r);
+      ctx.fillRect(e.x-q,e.y,3,1);ctx.fillRect(e.x+q-2,e.y,3,1);ctx.fillRect(e.x,e.y-q,1,3);ctx.fillRect(e.x,e.y+q-2,1,3);
+    }else{
+      ctx.fillStyle=e.c;ctx.globalAlpha=1-k;const d=Math.round(1+k*3);
+      ctx.fillRect(e.x-d,e.y-d,1,1);ctx.fillRect(e.x+d,e.y-d,1,1);ctx.fillRect(e.x-d,e.y+d,1,1);ctx.fillRect(e.x+d,e.y+d,1,1);ctx.globalAlpha=1;
+    }
+  }
+  if(S.heat>100&&!S.melt){ctx.fillStyle=`rgba(255,60,30,${.05+.07*Math.sin(S.t*.4)})`;ctx.fillRect(0,0,W,H);}
+  if(S.melt){ctx.fillStyle=`rgba(255,40,40,${.16+.12*Math.sin(S.t*.18)})`;ctx.fillRect(0,0,W,H);}
+  ctx.setTransform(1,0,0,1,0,0);
+}
+function rods(){
+  const bot=ROD_TOP+(ROD_FULL-ROD_TOP)*S.rod/100,hg=bot-ROD_TOP;if(hg<=0)return;
+  for(const rx of ROD_XS){
+    ctx.fillStyle='#7a879b';ctx.fillRect(rx,ROD_TOP,ROD_W,hg);
+    ctx.fillStyle='#3f4a5c';ctx.fillRect(rx,ROD_TOP,1,hg);ctx.fillRect(rx+ROD_W-1,ROD_TOP,1,hg);
+    ctx.fillStyle='#b8c4d4';ctx.fillRect(rx+2,ROD_TOP,1,hg);
+    ctx.fillStyle='#4a5568';for(let y=ROD_TOP+8;y<bot;y+=8)ctx.fillRect(rx,y,ROD_W,1);
+    if(hg>4){ctx.fillStyle='#d3e0f0';ctx.fillRect(rx,bot-2,ROD_W,2);}
+  }
+}
+function shield(){
+  const m=3,x=CORE.x-m,y=CORE.y-m,w=CORE.w+m*2,h=CORE.h+m*2;
+  if(S.cont){
+    const p=.55+.45*Math.sin(S.t*.11);
+    ctx.fillStyle=`rgba(57,198,255,${.06+.1*p})`;ctx.fillRect(x-3,y-3,w+6,h+6);
+    ctx.fillStyle=`rgba(57,198,255,${.55+.35*p})`;
+    ctx.fillRect(x,y,w,2);ctx.fillRect(x,y+h-2,w,2);ctx.fillRect(x,y,2,h);ctx.fillRect(x+w-2,y,2,h);
+    ctx.fillStyle='#b0eaff';
+    for(const[cx,cy]of[[x,y],[x+w-6,y],[x,y+h-2],[x+w-6,y+h-2]])ctx.fillRect(cx,cy,6,2);
+    for(const[cx,cy]of[[x,y],[x+w-2,y],[x,y+h-6],[x+w-2,y+h-6]])ctx.fillRect(cx,cy,2,6);
+  }else{
+    ctx.fillStyle='rgba(57,198,255,.18)';
+    for(let i=0;i<w;i+=6){ctx.fillRect(x+i,y,3,1);ctx.fillRect(x+i,y+h-1,3,1);}
+    for(let i=0;i<h;i+=6){ctx.fillRect(x,y+i,1,3);ctx.fillRect(x+w-1,y+i,1,3);}
+  }
+}
+
+/* ---------- UI ---------- */
+const LV=[
+ [0,'SIN REACCIÓN','#5b7fa6','El núcleo está estable'],
+ [3,'SUBCRÍTICO','#39c6ff','La cadena se apaga sola'],
+ [10,'CRÍTICO','#5ee66a','Reacción sostenida y controlada'],
+ [25,'SUPERCRÍTICO','#ffc93c','La reacción se acelera'],
+ [50,'PELIGRO','#ff8c3c','Calor creciente, actúa ya'],
+ [90,'DESCONTROL','#ff4d4d','¡Inserta barras o fundirás el núcleo!']
+];
+const hc=$('hist').getContext('2d');
+function ui(){
+  const fr=rate();
+  $('rate').textContent=fr;$('ncount').textContent=S.n.length;
+  $('energy').textContent=S.energy.toLocaleString('es');$('rad').textContent=S.rad;
+  const t=Math.min(100,S.heat/MELT*100);
+  $('tempval').textContent=t.toFixed(0)+'%';$('tempbar').style.width=t+'%';
+  let l=LV[0];for(const x of LV)if(fr>=x[0])l=x;
+  if(S.melt)l=[0,'FUSIÓN','#ff4d4d','Núcleo destruido'];
+  const e=$('level');e.textContent=l[1];e.style.color=l[2];$('levelDesc').textContent=l[3];
+  if(S.t%6===0){S.hist.push(fr);if(S.hist.length>160)S.hist.shift();
+    hc.fillStyle='#070d18';hc.fillRect(0,0,160,38);hc.fillStyle='#5ee66a';
+    const mx=Math.max(20,...S.hist);
+    S.hist.forEach((v,i)=>{const hh=Math.round(v/mx*36);hc.fillRect(i,38-hh,1,hh);});}
+  if(humG&&on){
+    humG.gain.setTargetAtTime(Math.min(.09,fr*.003+S.heat/MELT*.06),ac.currentTime,.1);
+    hum.frequency.setTargetAtTime(45+S.heat*.7+fr,ac.currentTime,.1);
+  }
+}
+$('enr').oninput=e=>{S.enr=+e.target.value;$('vEnr').textContent=S.enr+'%';tone(300+S.enr*5,.04,.06,'square');};
+$('enr').onchange=()=>{for(const a of S.atoms)if(a.alive)a.u=Math.random()<S.enr/100;};
+$('rod').oninput=e=>{S.rod=+e.target.value;$('vRod').textContent=S.rod+'%';tone(150+S.rod*3,.05,.07,'sawtooth');};
+$('shield').onclick=()=>{S.cont=!S.cont;const b=$('shield');b.classList.toggle('on',S.cont);b.textContent='CONTENCIÓN: '+(S.cont?'ON':'OFF');tone(S.cont?500:260,.18,.12,'square',S.cont?900:130);};
+$('snd').onclick=()=>setSound(!on);
+const doReset=()=>{reset();tone(600,.12,.1,'square',200);};
+$('reset').onclick=doReset;$('resetMelt').onclick=doReset;
+
+/* ---------- VISTA DETALLE: fisión de U-235 ---------- */
+let view=false,D=null,cyc=0;
+const dc=$('det'),dx=dc.getContext('2d');dx.font='bold 8px "Courier New",monospace';
+const RX=110,RW=16,WX=262,WW=12;
+function dreset(){
